@@ -1,10 +1,12 @@
 package com.teltech.teaspoon_tester;
 
 import com.teltech.teaspoon.Teaspoon;
+import com.teltech.teaspoon.TeaspoonHandler;
 
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
 import android.support.v7.app.ActionBarActivity;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -27,8 +29,24 @@ public class MainActivity extends ActionBarActivity {
 					.add(R.id.container, new PlaceholderFragment()).commit();
 		}
 		
-		
-		teaspoon = new Teaspoon(this.getApplicationContext());
+		teaspoon = new Teaspoon(this.getApplicationContext(), "23.22.245.68", 8090);
+		teaspoon.setHandler(new TeaspoonHandler(){
+
+			@Override
+			public void onConnect() {
+				// TODO Auto-generated method stub
+				Log.v("DEBUG", "Handler obConnect");
+			}
+
+			@Override
+			public void onDisconnect() {
+				// TODO Auto-generated method stub
+				Log.v("DEBUG", "Handler onDisconnect");
+				
+			}
+			
+		});
+		teaspoon.connect();
 	}
 
 	@Override
