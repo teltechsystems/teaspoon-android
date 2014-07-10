@@ -9,6 +9,7 @@ import java.net.Socket;
 import java.net.SocketAddress;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Random;
 
 import android.content.Context;
 import android.util.Log;
@@ -28,6 +29,7 @@ public class Teaspoon {
 	private String address;
 	private int port;
 	private TeaspoonHandler handler;
+	private PriorityQueue priorityQueue;
 	
 	/**
 	 * Initialize the Teaspoon library
@@ -41,6 +43,7 @@ public class Teaspoon {
 		this.port = port;
 		this.frame = new Frame();
 		this.inputBuffer = new ByteArrayOutputStream();
+		this.priorityQueue = new PriorityQueue();
 	}
 	
 	/**
@@ -141,6 +144,40 @@ public class Teaspoon {
 	}
 	
 	/**
+	 * Send a request
+	 * 
+	 * @param request
+	 */
+	public void sendRequest(Request request) {
+		if (request.requestIdentifier == null) {
+			request.requestIdentifier = this.generateRequestIdentifier();
+		}
+		
+		String identifierString = "";
+		for (int x = 0; x < 16; x++) {
+			identifierString += request.requestIdentifier[x];
+		}
+		this.requests.put(identifierString, request);
+		
+		this.priorityQueue.addRequest(request);
+		
+		
+		
+		
+	}
+	
+	/**
+	 * Generate and return a request identifier
+	 * 
+	 * @return Byte[]
+	 */
+	private byte[] generateRequestIdentifier() {
+		byte[] b = new byte[16];
+		new Random().nextBytes(b);
+		return b;
+	}
+	
+	/**
 	 * Process the current frame
 	 */
 	private void processFrame() {
@@ -151,12 +188,21 @@ public class Teaspoon {
 			if (this.requests.containsKey(identifierString)) {
 				this.requests.get(identifierString).receivedFrame(this.frame);
 			} else {
-				Request request = new Request();
+				final Teaspoon self = this;
+				final Request request = new Request();
 				request.setHandler(new RequestHandler(){
 
 					@Override
 					public void onReceivedResponse(int method, long resource, int priority, byte[] payload) {
-						Log.v("DEBUG", "Handler onReceivedResponse: " + method + " = " + resource + " = " + priority + " = " + payload.toString());
+						if (self.handler != null) {
+							Request receivedRequest = new Request();
+							receivedRequest.method = method;
+							receivedRequest.resource = resource;
+							receivedRequest.priority = priority;
+							receivedRequest.payload = payload;
+							receivedRequest.requestIdentifier = request.requestIdentifier;
+							self.handler.onReceivedRequest(receivedRequest);
+						}
 					}
 					
 				});

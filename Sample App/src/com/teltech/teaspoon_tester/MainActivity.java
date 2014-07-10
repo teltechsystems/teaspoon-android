@@ -53,12 +53,19 @@ public class MainActivity extends ActionBarActivity {
 			
 			@Override
 			public void onReceivedRequest(Request request) {
-				Log.v("DEBUG", "Handler onReceivedRequest");
+				Log.v("DEBUG", "Handler onReceivedRequest: " + request.resource + " = " + request.method + " = " + request.priority);
+				
+				Request newRequest = new Request();
+				newRequest.method = request.method;
+				newRequest.resource = request.resource;
+				newRequest.priority = request.priority;
+				newRequest.requestIdentifier = request.requestIdentifier;
+				newRequest.payload = "The derp of the day".getBytes();
+				
+				teaspoon.sendRequest(newRequest);
 			}
 		});
-		Log.v("DEBUG", "TESTER: Connecting");
 		teaspoon.connect(2);
-		Log.v("DEBUG", "TESTER: Done Connecting");
 	}
 
 	 @Override

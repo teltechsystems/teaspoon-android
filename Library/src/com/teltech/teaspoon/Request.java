@@ -6,6 +6,12 @@ import android.util.Log;
 
 public class Request {
 
+	public int priority;
+	public int method;
+	public long resource;
+	public byte[] requestIdentifier;
+	public byte[] payload;
+	
 	public int responseMethod;
 	public long responseResource;
 	public int responsePriority;
@@ -25,13 +31,11 @@ public class Request {
 	 * @param frame
 	 */
 	public void receivedFrame(Frame frame) {
+		this.requestIdentifier = frame.requestIdentifier;
 		this.responseMethod = frame.method;
 		this.responseResource = frame.resource;
 		this.responsePriority = frame.priority;
 		responsePayload.write(frame.payload, 0, frame.payload.length);
-		
-		Log.v("DEBUG", "Received: " + responsePayload.size());
-		
 		if ((frame.sequence + 1) == frame.totalSequences) {
 			if (this.handler != null) {
 				this.handler.onReceivedResponse(this.responseMethod, this.responseResource, this.responsePriority, this.responsePayload.toByteArray());
