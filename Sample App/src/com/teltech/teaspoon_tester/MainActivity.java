@@ -1,5 +1,6 @@
 package com.teltech.teaspoon_tester;
 
+
 import com.teltech.teaspoon.Teaspoon;
 import com.teltech.teaspoon.TeaspoonHandler;
 
@@ -34,21 +35,32 @@ public class MainActivity extends ActionBarActivity {
 
 			@Override
 			public void onConnect() {
-				// TODO Auto-generated method stub
-				Log.v("DEBUG", "Handler obConnect");
+				Log.v("DEBUG", "Handler onConnect");
 			}
 
 			@Override
-			public void onDisconnect() {
-				// TODO Auto-generated method stub
-				Log.v("DEBUG", "Handler onDisconnect");
+			public void onConnectionError(Exception e) {
+				Log.v("DEBUG", "Handler onConnectionError: " + e.getLocalizedMessage());
 				
 			}
 			
+			@Override
+			public void onDisconnect() {
+				Log.v("DEBUG", "Handler onDisconnect");
+				
+			}
 		});
-		teaspoon.connect();
+		Log.v("DEBUG", "TESTER: Connecting");
+		teaspoon.connect(2);
+		Log.v("DEBUG", "TESTER: Done Connecting");
 	}
 
+	 @Override
+	   protected void onStop() {
+		super.onStop();
+		teaspoon.disconnect();
+	   }
+	 
 	@Override
 	public boolean onCreateOptionsMenu(Menu menu) {
 
@@ -63,9 +75,9 @@ public class MainActivity extends ActionBarActivity {
 		// automatically handle clicks on the Home/Up button, so long
 		// as you specify a parent activity in AndroidManifest.xml.
 		int id = item.getItemId();
-		if (id == R.id.action_settings) {
-			return true;
-		}
+//		if (id == R.id.action_settings) {
+//			return true;
+//		}
 		return super.onOptionsItemSelected(item);
 	}
 

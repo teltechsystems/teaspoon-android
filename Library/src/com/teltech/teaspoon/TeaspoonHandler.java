@@ -7,6 +7,13 @@ public abstract class TeaspoonHandler {
 	 */
 	abstract public void onConnect();
 	
+	/**
+	 * Called when the socket fails to connect
+	 * 
+	 * @param e Exception
+	 */
+	abstract public void onConnectionError(Exception e);
+	
 	/***
 	 * Called when disconnected from the server
 	 */
