@@ -4,12 +4,9 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.math.BigInteger;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketAddress;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.util.Arrays;
 
 import android.content.Context;
@@ -20,7 +17,9 @@ public class Teaspoon {
 	private Socket socket;
 	private enum FrameField {OPCODE, PRIORITY, UNUSED, METHOD, RESOURCE, SEQUENCE, TOTAL_SEQUENCES, REQUEST_IDENTIFIER, PAYLOAD_LENGTH, PAYLOAD}
 	private FrameField currentFrameField;
-	private byte[] inputBuffer;
+	private ByteArrayOutputStream inputBuffer;
+	private Frame frame;
+	private int OPCODE_PING = 0x9;
 	protected boolean isConnecting;
 	protected OutputStream outputStream;
 	protected InputStream inputStream;
@@ -38,6 +37,7 @@ public class Teaspoon {
 	public Teaspoon (Context context, String address, int port) {
 		this.address = address;
 		this.port = port;
+		this.frame = new Frame();
 	}
 	
 	/**
@@ -71,20 +71,6 @@ public class Teaspoon {
 	}
 	
 	/**
-	 * Concatenate two byte arrays
-	 * 
-	 * @param a
-	 * @param b
-	 * @return
-	 */
-	byte[] concatenateByteArrays(byte[] a, byte[] b) {
-	    byte[] result = new byte[a.length + b.length]; 
-	    System.arraycopy(a, 0, result, 0, a.length); 
-	    System.arraycopy(b, 0, result, a.length, b.length); 
-	    return result;
-	}
-	
-	/**
 	 * Connect the socket
 	 */
 	private void connectSocket(final int timeout) {
@@ -95,7 +81,7 @@ public class Teaspoon {
 		}
 		
 		this.currentFrameField = FrameField.OPCODE;
-		this.inputBuffer = new byte[0];
+		this.inputBuffer = new ByteArrayOutputStream();
 		
 		final Teaspoon self = this;
 		new Thread() {
@@ -115,9 +101,7 @@ public class Teaspoon {
 					byte[] buffer = new byte[1024];
 					int bytesRead;
 					 while ((bytesRead = self.inputStream.read(buffer)) != -1) {
-						 self.inputBuffer = buffer;
-						 //self.concatenateByteArrays(inputBuffer, buffer);
-						 //Log.v("DEBUG", "Concat: " + inputBuffer.length + " = " + buffer.length);
+						 inputBuffer.write(buffer, 0, bytesRead);
 		                 self.processInputBuffer();
 		             }
 				} catch (IOException e) {
@@ -130,29 +114,58 @@ public class Teaspoon {
 		}.start();
 	}
 	
-	 public int byteArrayToInt(byte[] b) {
-		    if (b.length == 4)
-		      return b[0] << 24 | (b[1] & 0xff) << 16 | (b[2] & 0xff) << 8
-		          | (b[3] & 0xff);
-		    else if (b.length == 2)
-		      return 0x00 << 24 | 0x00 << 16 | (b[0] & 0xff) << 8 | (b[1] & 0xff);
+	/**
+	 * Convert a byte array to a long
+	 * 
+	 * @param b Byte Array to convert
+	 * @return long
+	 */
+	public long byteArrayToLong(byte[] b) {
+	    if (b.length == 4)
+	      return (b[0] << 24 | (b[1] & 0xff) << 16 | (b[2] & 0xff) << 8
+	          | (b[3] & 0xff)) & 0x00ffffffff;
+	    else if (b.length == 2)
+	      return 0x00 << 24 | 0x00 << 16 | (b[0] & 0xff) << 8 | (b[1] & 0xff);
 
-		    return 0;
-		  }
+	    return 0;
+	}
+	
+	/**
+	 * Reply to a PING
+	 */
+	public void PONG() {
+		
+	}
+	
+	/**
+	 * Process the current frame
+	 */
+	private void processFrame() {
+		if (frame.opcode == OPCODE_PING) {
+			Log.v("DEBUG", ">>>>>>>>>>>>>>>>>>>> PING!");
+		} else {
+			Log.v("DEBUG", ">>>>>>>>>>>>>>>>>>>> Process Frame");
+		}
+	}
 	 
+	/**
+	 * Process the input buffer 
+	 */
 	private void processInputBuffer() {
-		//Log.v("DEBUG", "Process: " + this.inputBuffer.length);
+		
+		byte[] bufferBytes = this.inputBuffer.toByteArray();
+		
 		switch (this.currentFrameField) {
 			case OPCODE:
 			case PRIORITY:
-				if (inputBuffer.length >= 1) {
-					byte[] bytes = Arrays.copyOfRange(this.inputBuffer, 0, 1);
-					int opcode = bytes[0] >> 4;
-					int priority = 0x0F & bytes[0];
-					
-					Log.v("DEBUG", "Opcode+Priority = " + opcode + ", " + priority);
-					
-					this.inputBuffer = Arrays.copyOfRange(this.inputBuffer, 1, this.inputBuffer.length - 1);
+				if (bufferBytes.length >= 1) {
+					byte[] bytes = Arrays.copyOfRange(bufferBytes, 0, 1);
+					frame.opcode = (bytes[0] >> 4) & 0x0f;
+					frame.priority = 0x0F & bytes[0];
+
+					byte[] buffer = Arrays.copyOfRange(bufferBytes, 1, bufferBytes.length);
+					this.inputBuffer.reset();
+					this.inputBuffer.write(buffer, 0, buffer.length);
 					
 					this.currentFrameField = FrameField.UNUSED;
 					this.processInputBuffer();
@@ -161,14 +174,14 @@ public class Teaspoon {
 				
 			case UNUSED:
 			case METHOD:
-				if (inputBuffer.length >= 1) {
-					byte[] bytes = Arrays.copyOfRange(this.inputBuffer, 0, 1);
-					int unused = bytes[0] >> 4;
-					int method = 0x0F & bytes[0];
-					
-					Log.v("DEBUG", "Unused+Method = " + unused + ", " + method);
-					
-					this.inputBuffer = Arrays.copyOfRange(this.inputBuffer, 1, this.inputBuffer.length - 1);
+				if (bufferBytes.length >= 1) {
+					byte[] bytes = Arrays.copyOfRange(bufferBytes, 0, 1);
+					frame.unused = (bytes[0] >> 4) & 0x0f;
+					frame.method = 0x0F & bytes[0];
+
+					byte[] buffer = Arrays.copyOfRange(bufferBytes, 1, bufferBytes.length);
+					this.inputBuffer.reset();
+					this.inputBuffer.write(buffer, 0, buffer.length);
 					
 					this.currentFrameField = FrameField.RESOURCE;
 					this.processInputBuffer();
@@ -176,14 +189,13 @@ public class Teaspoon {
 				break;
 				
 			case RESOURCE:
-				if (inputBuffer.length >= 2) {
-					byte[] bytes = Arrays.copyOfRange(inputBuffer, 0, 2);
+				if (bufferBytes.length >= 2) {
+					byte[] bytes = Arrays.copyOfRange(bufferBytes, 0, 2);
+					frame.resource = this.byteArrayToLong(bytes);
 					
-					int resource = this.byteArrayToInt(bytes);
-					
-					Log.v("DEBUG", "Resource = " + resource);
-					
-					this.inputBuffer = Arrays.copyOfRange(this.inputBuffer, 2, this.inputBuffer.length - 2);
+					byte[] buffer = Arrays.copyOfRange(bufferBytes, 2, bufferBytes.length);
+					this.inputBuffer.reset();
+					this.inputBuffer.write(buffer, 0, buffer.length);
 					
 					this.currentFrameField = FrameField.SEQUENCE;
 					this.processInputBuffer();
@@ -191,14 +203,13 @@ public class Teaspoon {
 				break;
 				
 			case SEQUENCE:
-				if (inputBuffer.length >= 2) {
-					byte[] bytes = Arrays.copyOfRange(inputBuffer, 0, 2);
+				if (bufferBytes.length >= 2) {
+					byte[] bytes = Arrays.copyOfRange(bufferBytes, 0, 2);
+					frame.sequence = this.byteArrayToLong(bytes);
 					
-					int sequence = this.byteArrayToInt(bytes);
-					
-					Log.v("DEBUG", "Sequence = " + sequence);
-					
-					this.inputBuffer = Arrays.copyOfRange(this.inputBuffer, 2, this.inputBuffer.length - 2);
+					byte[] buffer = Arrays.copyOfRange(bufferBytes, 2, bufferBytes.length);
+					this.inputBuffer.reset();
+					this.inputBuffer.write(buffer, 0, buffer.length);
 					
 					this.currentFrameField = FrameField.TOTAL_SEQUENCES;
 					this.processInputBuffer();
@@ -206,14 +217,13 @@ public class Teaspoon {
 				break;
 				
 			case TOTAL_SEQUENCES:
-				if (inputBuffer.length >= 2) {
-					byte[] bytes = Arrays.copyOfRange(inputBuffer, 0, 2);
-					
-					int totalSequences = this.byteArrayToInt(bytes);
-					
-					Log.v("DEBUG", "totalSequences = " + totalSequences);
-					
-					this.inputBuffer = Arrays.copyOfRange(this.inputBuffer, 2, this.inputBuffer.length - 2);
+				if (bufferBytes.length >= 2) {
+					byte[] bytes = Arrays.copyOfRange(bufferBytes, 0, 2);					
+					frame.totalSequences = this.byteArrayToLong(bytes);
+
+					byte[] buffer = Arrays.copyOfRange(bufferBytes, 2, bufferBytes.length);
+					this.inputBuffer.reset();
+					this.inputBuffer.write(buffer, 0, buffer.length);
 					
 					this.currentFrameField = FrameField.REQUEST_IDENTIFIER;
 					this.processInputBuffer();
@@ -221,14 +231,12 @@ public class Teaspoon {
 				break;
 				
 			case REQUEST_IDENTIFIER:
-				if (inputBuffer.length >= 16) {
-					byte[] bytes = Arrays.copyOfRange(inputBuffer, 0, 16);
-					
-					int requestIdentifier = this.byteArrayToInt(bytes);
-					
-					Log.v("DEBUG", "requestIdentifier = " + requestIdentifier);
-					
-					this.inputBuffer = Arrays.copyOfRange(this.inputBuffer, 16, this.inputBuffer.length - 16);
+				if (bufferBytes.length >= 16) {
+					frame.requestIdentifier = Arrays.copyOfRange(bufferBytes, 0, 16);
+
+					byte[] buffer = Arrays.copyOfRange(bufferBytes, 16, bufferBytes.length);
+					this.inputBuffer.reset();
+					this.inputBuffer.write(buffer, 0, buffer.length);
 					
 					this.currentFrameField = FrameField.PAYLOAD_LENGTH;
 					this.processInputBuffer();
@@ -236,14 +244,13 @@ public class Teaspoon {
 				break;
 				
 			case PAYLOAD_LENGTH:
-				if (inputBuffer.length >= 4) {
-					byte[] bytes = Arrays.copyOfRange(inputBuffer, 0, 4);
-					
-					int payloadLength = this.byteArrayToInt(bytes);
-					
-					Log.v("DEBUG", "payloadLength = " + payloadLength);
-					
-					this.inputBuffer = Arrays.copyOfRange(this.inputBuffer, 4, this.inputBuffer.length - 4);
+				if (bufferBytes.length >= 4) {
+					byte[] bytes = Arrays.copyOfRange(bufferBytes, 0, 4);					
+					frame.payloadLength = this.byteArrayToLong(bytes);
+
+					byte[] buffer = Arrays.copyOfRange(bufferBytes, 4, bufferBytes.length);
+					this.inputBuffer.reset();
+					this.inputBuffer.write(buffer, 0, buffer.length);
 					
 					this.currentFrameField = FrameField.PAYLOAD;
 					this.processInputBuffer();
@@ -251,6 +258,23 @@ public class Teaspoon {
 				break;
 				
 			case PAYLOAD:
+				if (frame.payloadLength == 0) {
+					this.processFrame();
+					this.currentFrameField = FrameField.OPCODE;
+					this.processInputBuffer();
+				} else {
+					if (bufferBytes.length >= frame.payloadLength) {
+						frame.payload = Arrays.copyOfRange(bufferBytes, 0, (int) frame.payloadLength);
+						
+						byte[] buffer = Arrays.copyOfRange(bufferBytes, (int) frame.payloadLength, bufferBytes.length);
+						this.inputBuffer.reset();
+						this.inputBuffer.write(buffer, 0, buffer.length);
+						
+						this.processFrame();
+						this.currentFrameField = FrameField.OPCODE;
+						this.processInputBuffer();
+					}
+				}
 				break;
 			
 		}
