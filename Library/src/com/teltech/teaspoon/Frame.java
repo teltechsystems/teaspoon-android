@@ -25,4 +25,17 @@ public class Frame {
 		payloadLength = 0;
 		payload = null;
 	}
+	
+	/**
+	 * Return the Request Identifer as a string
+	 * 
+	 * @return String
+	 */
+	public String requestIdentifierString() {
+		String identifier = "";
+		for (int x = 0; x < 16; x++) {
+			identifier += this.requestIdentifier[x];
+		}
+		return identifier;
+	}
 }

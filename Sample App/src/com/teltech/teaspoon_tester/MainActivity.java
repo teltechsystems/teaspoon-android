@@ -1,6 +1,7 @@
 package com.teltech.teaspoon_tester;
 
 
+import com.teltech.teaspoon.Request;
 import com.teltech.teaspoon.Teaspoon;
 import com.teltech.teaspoon.TeaspoonHandler;
 
@@ -48,6 +49,11 @@ public class MainActivity extends ActionBarActivity {
 			public void onDisconnect() {
 				Log.v("DEBUG", "Handler onDisconnect");
 				
+			}
+			
+			@Override
+			public void onReceivedRequest(Request request) {
+				Log.v("DEBUG", "Handler onReceivedRequest");
 			}
 		});
 		Log.v("DEBUG", "TESTER: Connecting");

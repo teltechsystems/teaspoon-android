@@ -8,6 +8,7 @@ import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketAddress;
 import java.util.Arrays;
+import java.util.HashMap;
 
 import android.content.Context;
 import android.util.Log;
@@ -20,12 +21,13 @@ public class Teaspoon {
 	private ByteArrayOutputStream inputBuffer;
 	private Frame frame;
 	private int OPCODE_PING = 0x9;
-	protected boolean isConnecting;
+	private HashMap<String, Request> requests = new HashMap<String, Request>();
+	private boolean isConnecting;
 	protected OutputStream outputStream;
-	protected InputStream inputStream;
-	protected String address;
-	protected int port;
-	protected TeaspoonHandler handler;
+	private InputStream inputStream;
+	private String address;
+	private int port;
+	private TeaspoonHandler handler;
 	
 	/**
 	 * Initialize the Teaspoon library
@@ -38,6 +40,7 @@ public class Teaspoon {
 		this.address = address;
 		this.port = port;
 		this.frame = new Frame();
+		this.inputBuffer = new ByteArrayOutputStream();
 	}
 	
 	/**
@@ -81,7 +84,7 @@ public class Teaspoon {
 		}
 		
 		this.currentFrameField = FrameField.OPCODE;
-		this.inputBuffer = new ByteArrayOutputStream();
+		this.inputBuffer.reset();
 		
 		final Teaspoon self = this;
 		new Thread() {
@@ -134,7 +137,7 @@ public class Teaspoon {
 	 * Reply to a PING
 	 */
 	public void PONG() {
-		
+		Log.v("DEBUG", "PONG BACK");
 	}
 	
 	/**
@@ -142,9 +145,24 @@ public class Teaspoon {
 	 */
 	private void processFrame() {
 		if (frame.opcode == OPCODE_PING) {
-			Log.v("DEBUG", ">>>>>>>>>>>>>>>>>>>> PING!");
+			this.PONG();
 		} else {
-			Log.v("DEBUG", ">>>>>>>>>>>>>>>>>>>> Process Frame");
+			String identifierString = frame.requestIdentifierString();
+			if (this.requests.containsKey(identifierString)) {
+				this.requests.get(identifierString).receivedFrame(this.frame);
+			} else {
+				Request request = new Request();
+				request.setHandler(new RequestHandler(){
+
+					@Override
+					public void onReceivedResponse(int method, long resource, int priority, byte[] payload) {
+						Log.v("DEBUG", "Handler onReceivedResponse: " + method + " = " + resource + " = " + priority + " = " + payload.toString());
+					}
+					
+				});
+				request.receivedFrame(this.frame);
+				requests.put(identifierString, request);
+			}
 		}
 	}
 	 

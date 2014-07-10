@@ -19,4 +19,11 @@ public abstract class TeaspoonHandler {
 	 */
 	abstract public void onDisconnect();
 	
+	/**
+	 * Called when the socket receives a request
+	 * 
+	 * @param request
+	 */
+	abstract public void onReceivedRequest(Request request);
+	
 }
