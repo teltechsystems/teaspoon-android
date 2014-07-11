@@ -65,7 +65,7 @@ public class Frame {
 				dataStream.write(this.payload);
 			}
 		} catch (IOException e) {
-			Log.v("DEBUG", "Failed to write frame in creation");
+			Log.v("DEBUG", "Failed to convert frame to a Byte Array");
 		}
 
 		return dataStream.toByteArray();

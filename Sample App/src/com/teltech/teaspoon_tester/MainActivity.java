@@ -34,6 +34,10 @@ public class MainActivity extends ActionBarActivity {
 					.add(R.id.container, new PlaceholderFragment()).commit();
 		}
 		
+		
+		
+		
+		// Connect to the server
 		teaspoon = new Teaspoon(this.getApplicationContext(), "23.22.245.68", 8090);
 		teaspoon.setHandler(new TeaspoonHandler(){
 
@@ -58,18 +62,20 @@ public class MainActivity extends ActionBarActivity {
 			public void onReceivedRequest(Request request) {
 				Log.v("DEBUG", "-------> RESOURCE (" + request.resource + ") METHOD (" + request.method + ") PRIORITY (" + request.priority + ")");
 				
+				// Echo the request back to the server
 				Request newRequest = new Request();
 				newRequest.method = request.method;
 				newRequest.resource = request.resource;
 				newRequest.priority = request.priority;
 				newRequest.requestIdentifier = request.requestIdentifier;
-				newRequest.setPayload("The derp of the day".getBytes());
-				
+				newRequest.setPayload(request.payload);
 				teaspoon.sendRequest(newRequest);
 			}
 		});
-		//teaspoon.connect(2);
+		teaspoon.connect(15); // 15 = the time out
 		
+		
+		// Send a request to the server
 		final Request request = new Request();
 		request.method = 2;
 		request.resource = 9;
@@ -78,20 +84,35 @@ public class MainActivity extends ActionBarActivity {
 
 			@Override
 			public void onReceivedResponse(int method, long resource, int priority, byte[] payload) {
-				String s = null;
-				try {
-					s = new String(payload, "UTF-8");
-				} catch (UnsupportedEncodingException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-				Log.v("DEBUG", "-------> RESOURCE (" + request.resource + ") METHOD (" + request.method + ") PRIORITY (" + request.priority + ") = " + s);
+				Log.v("DEBUG", "-------> RESOURCE (" + request.resource + ") METHOD (" + request.method + ") PRIORITY (" + request.priority + ")");
+			}
+
+			@Override
+			public void onTimeout() {
+				Log.v("DEBUG", "onTimeout");
+				
+			}
+
+			@Override
+			public void onAborted() {
+				Log.v("DEBUG", "onAborted");
 			}
 			
 		});
 		teaspoon.sendRequest(request);
 	}
 
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
 	 @Override
 	   protected void onStop() {
 		super.onStop();

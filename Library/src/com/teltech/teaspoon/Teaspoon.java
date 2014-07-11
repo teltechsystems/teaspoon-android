@@ -1,6 +1,5 @@
 package com.teltech.teaspoon;
 
-import java.io.BufferedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -51,6 +50,18 @@ public class Teaspoon {
 	}
 	
 	/**
+	 * Abort any currently pending requests
+	 */
+	public void abortAllRequests() {
+		this.priorityQueue.removeAllRequests();
+		for (String key : requests.keySet()) {
+			Request request = requests.get(key);
+			request.abort();
+		}
+		this.requests.clear();
+	}
+	
+	/**
 	 * Connect to the server
 	 * 
 	 * @param timeout Timeout in seconds
@@ -69,6 +80,7 @@ public class Teaspoon {
 			}
 		} catch (IOException e) {
 		}
+		this.abortAllRequests();
 	}
 	
 	/**
@@ -130,6 +142,7 @@ public class Teaspoon {
 					if ((self.handler != null) && (self.socket.isClosed() == false)) {
 						self.handler.onConnectionError(e);
 					}
+					self.disconnect();
 				}
 			}
 		}.start();
@@ -228,6 +241,14 @@ public class Teaspoon {
 							receivedRequest.requestIdentifier = request.requestIdentifier;
 							self.handler.onReceivedRequest(receivedRequest);
 						}
+					}
+
+					@Override
+					public void onTimeout() {
+					}
+
+					@Override
+					public void onAborted() {						
 					}
 					
 				});
@@ -382,6 +403,7 @@ public class Teaspoon {
 		Frame frame = request.nextOutputFrame();
 		if (frame == null) {
 			this.priorityQueue.removeRequest(request);
+			this.requests.remove(request);
 			return;
 		}
 		
@@ -397,14 +419,13 @@ public class Teaspoon {
 			this.outputStream.flush();
 			this.writeOutputStream();
 		} catch (IOException e) {
-			e.printStackTrace();
 			Log.v("DEBUG", "Failed to send data to the output stream");
+			this.disconnect();
 		}
-		
-		
-		
+
 		if (request.hasMoreFrames() == false) {
 			this.priorityQueue.removeRequest(request);
+			this.requests.remove(request);
 		}
 		
 	}

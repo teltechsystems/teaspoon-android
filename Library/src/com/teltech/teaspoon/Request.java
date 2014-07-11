@@ -3,18 +3,17 @@ package com.teltech.teaspoon;
 import java.io.ByteArrayOutputStream;
 import java.util.Arrays;
 
-import android.util.Log;
 
 public class Request {
 
-	public int MAX_PAYLOAD_BYTES = 12;
+	public int MAX_PAYLOAD_BYTES = 1200;
 	
 	public int opcode;
 	public int priority;
 	public int method;
 	public long resource;
 	public byte[] requestIdentifier;
-	private byte[] payload;
+	public byte[] payload;
 	
 	public int responseMethod;
 	public long responseResource;
@@ -34,6 +33,15 @@ public class Request {
 		this.responsePayload = new ByteArrayOutputStream();
 		this.opcode = 0x2;
 		this.priority = 1;
+	}
+	
+	/**
+	 * Abort the request
+	 */
+	public void abort() {
+		if (this.handler != null) {
+			this.handler.onAborted();
+		}
 	}
 	
 	/**
