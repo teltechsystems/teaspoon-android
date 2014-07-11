@@ -6,6 +6,7 @@ import android.util.Log;
 
 public class Request {
 
+	public int opcode;
 	public int priority;
 	public int method;
 	public long resource;
@@ -23,6 +24,7 @@ public class Request {
 	 */
 	public Request() {
 		this.responsePayload = new ByteArrayOutputStream();
+		this.opcode = 0x2;
 	}
 	
 	/**

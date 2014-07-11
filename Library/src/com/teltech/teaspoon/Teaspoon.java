@@ -22,6 +22,7 @@ public class Teaspoon {
 	private ByteArrayOutputStream inputBuffer;
 	private Frame frame;
 	private int OPCODE_PING = 0x9;
+	private int PRIORITY_PONG = 5;
 	private HashMap<String, Request> requests = new HashMap<String, Request>();
 	private boolean isConnecting;
 	protected OutputStream outputStream;
@@ -109,7 +110,14 @@ public class Teaspoon {
 					 while ((bytesRead = self.inputStream.read(buffer)) != -1) {
 						 inputBuffer.write(buffer, 0, bytesRead);
 		                 self.processInputBuffer();
+		                 self.writeOutputStream();
 		             }
+					 self.outputStream.close();
+					 self.inputStream.close();
+					 self.socket.close();
+					 if (self.handler != null) {
+						self.handler.onDisconnect();
+					 }
 				} catch (IOException e) {
 					self.isConnecting = false;
 					if ((self.handler != null) && (self.socket.isClosed() == false)) {
@@ -141,6 +149,10 @@ public class Teaspoon {
 	 */
 	public void PONG() {
 		Log.v("DEBUG", "PONG BACK");
+		Request request = new Request();
+		request.opcode = this.OPCODE_PING;
+		request.priority = this.PRIORITY_PONG;
+		this.sendRequest(request);
 	}
 	
 	/**
@@ -158,10 +170,7 @@ public class Teaspoon {
 			identifierString += request.requestIdentifier[x];
 		}
 		this.requests.put(identifierString, request);
-		
 		this.priorityQueue.addRequest(request);
-		
-		
 		
 		
 	}
@@ -342,5 +351,18 @@ public class Teaspoon {
 				break;
 			
 		}
+	}
+	
+	/**
+	 * Write any pending data to the socket
+	 */
+	private void writeOutputStream() {
+		
+		Request request = this.priorityQueue.highestRequest();
+		if (request == null) {
+			return;
+		}
+		
+		
 	}
 }
