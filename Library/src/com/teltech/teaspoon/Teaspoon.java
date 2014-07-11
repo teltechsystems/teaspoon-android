@@ -1,5 +1,6 @@
 package com.teltech.teaspoon;
 
+import java.io.BufferedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -22,6 +23,7 @@ public class Teaspoon {
 	private ByteArrayOutputStream inputBuffer;
 	private Frame frame;
 	private int OPCODE_PING = 0x9;
+	private int OPCODE_PONG = 0xA;
 	private int PRIORITY_PONG = 5;
 	private HashMap<String, Request> requests = new HashMap<String, Request>();
 	private boolean isConnecting;
@@ -31,6 +33,7 @@ public class Teaspoon {
 	private int port;
 	private TeaspoonHandler handler;
 	private PriorityQueue priorityQueue;
+	private int timeout = 15;
 	
 	/**
 	 * Initialize the Teaspoon library
@@ -81,6 +84,9 @@ public class Teaspoon {
 	 * Connect the socket
 	 */
 	private void connectSocket(final int timeout) {
+		
+		this.timeout = timeout;
+		
 		if (this.isConnecting) {
 			return;
 		} else {
@@ -103,6 +109,7 @@ public class Teaspoon {
 					if (self.handler != null) {
 						self.handler.onConnect();
 					}
+					self.writeOutputStream();
 					
 					self.inputStream = socket.getInputStream();
 					byte[] buffer = new byte[1024];
@@ -148,9 +155,9 @@ public class Teaspoon {
 	 * Reply to a PING
 	 */
 	public void PONG() {
-		Log.v("DEBUG", "PONG BACK");
+		Log.v("DEBUG", "-------> PING");
 		Request request = new Request();
-		request.opcode = this.OPCODE_PING;
+		request.opcode = this.OPCODE_PONG;
 		request.priority = this.PRIORITY_PONG;
 		this.sendRequest(request);
 	}
@@ -164,15 +171,24 @@ public class Teaspoon {
 		if (request.requestIdentifier == null) {
 			request.requestIdentifier = this.generateRequestIdentifier();
 		}
-		
+
 		String identifierString = "";
 		for (int x = 0; x < 16; x++) {
 			identifierString += request.requestIdentifier[x];
 		}
+		
 		this.requests.put(identifierString, request);
 		this.priorityQueue.addRequest(request);
 		
-		
+		if (this.socket == null) {
+			this.connectSocket(this.timeout);
+		} else {
+			if (this.socket.isConnected()) {
+				this.writeOutputStream();
+			} else {
+				this.connectSocket(this.timeout);
+			}
+		}
 	}
 	
 	/**
@@ -208,7 +224,7 @@ public class Teaspoon {
 							receivedRequest.method = method;
 							receivedRequest.resource = resource;
 							receivedRequest.priority = priority;
-							receivedRequest.payload = payload;
+							receivedRequest.setPayload(payload);
 							receivedRequest.requestIdentifier = request.requestIdentifier;
 							self.handler.onReceivedRequest(receivedRequest);
 						}
@@ -363,6 +379,33 @@ public class Teaspoon {
 			return;
 		}
 		
+		Frame frame = request.nextOutputFrame();
+		if (frame == null) {
+			this.priorityQueue.removeRequest(request);
+			return;
+		}
+		
+		try {
+			if (frame.opcode == this.OPCODE_PONG) {
+				Log.v("DEBUG", "<------- PONG");
+			} else {
+				Log.v("DEBUG", "<------- RESOURCE (" + request.resource + ") METHOD (" + request.method + ") PRIORITY (" + request.priority + ") FRAME (" + (frame.sequence + 1) + "/" + frame.totalSequences + ")");
+			}
+
+			
+			this.outputStream.write(frame.data());
+			this.outputStream.flush();
+			this.writeOutputStream();
+		} catch (IOException e) {
+			e.printStackTrace();
+			Log.v("DEBUG", "Failed to send data to the output stream");
+		}
+		
+		
+		
+		if (request.hasMoreFrames() == false) {
+			this.priorityQueue.removeRequest(request);
+		}
 		
 	}
 }

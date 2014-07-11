@@ -2,6 +2,8 @@ package com.teltech.teaspoon;
 
 import java.util.ArrayList;
 
+import android.util.Log;
+
 public class PriorityQueue {
 
 	ArrayList<Request> queue = new ArrayList<Request>();

@@ -1,7 +1,10 @@
 package com.teltech.teaspoon_tester;
 
 
+import java.io.UnsupportedEncodingException;
+
 import com.teltech.teaspoon.Request;
+import com.teltech.teaspoon.RequestHandler;
 import com.teltech.teaspoon.Teaspoon;
 import com.teltech.teaspoon.TeaspoonHandler;
 
@@ -53,19 +56,40 @@ public class MainActivity extends ActionBarActivity {
 			
 			@Override
 			public void onReceivedRequest(Request request) {
-				Log.v("DEBUG", "Handler onReceivedRequest: " + request.resource + " = " + request.method + " = " + request.priority);
+				Log.v("DEBUG", "-------> RESOURCE (" + request.resource + ") METHOD (" + request.method + ") PRIORITY (" + request.priority + ")");
 				
 				Request newRequest = new Request();
 				newRequest.method = request.method;
 				newRequest.resource = request.resource;
 				newRequest.priority = request.priority;
 				newRequest.requestIdentifier = request.requestIdentifier;
-				newRequest.payload = "The derp of the day".getBytes();
+				newRequest.setPayload("The derp of the day".getBytes());
 				
 				teaspoon.sendRequest(newRequest);
 			}
 		});
-		teaspoon.connect(2);
+		//teaspoon.connect(2);
+		
+		final Request request = new Request();
+		request.method = 2;
+		request.resource = 9;
+		request.setPayload("This is a derp".getBytes());
+		request.setHandler(new RequestHandler() {
+
+			@Override
+			public void onReceivedResponse(int method, long resource, int priority, byte[] payload) {
+				String s = null;
+				try {
+					s = new String(payload, "UTF-8");
+				} catch (UnsupportedEncodingException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+				Log.v("DEBUG", "-------> RESOURCE (" + request.resource + ") METHOD (" + request.method + ") PRIORITY (" + request.priority + ") = " + s);
+			}
+			
+		});
+		teaspoon.sendRequest(request);
 	}
 
 	 @Override
